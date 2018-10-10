@@ -1,182 +1,118 @@
 class Player {
-  constructor() {
-    this.directions = Object.freeze({"backward":"backward", "forward":"forward", "right":"right", "left":"left"})
-    this.isUnderAttack = false
-    this.moveStack = [{
-        "direction":"backward",
-        "action":"walk",
-        "health":20,
-        "underAttack":this.isUnderAttack
-      }]
-  }
-  playTurn(warrior) {
-    this.isUnderAttack = this.previousHealth > warrior.health();
-    
-    this.action = this.orient(warrior)
 
-    if (this.action.direction) {
-      this.moveStack.push({
-        "direction":this.action.direction,
-        "action":this.action.action,
-        "health":warrior.health(),
-        "underAttack":this.isUnderAttack
-      })
+    constructor() {
+    	this.directions = ["forward","right","backward","left"]
+        this.warrior = null
+        this.lastDamageTaken = 0
+        this.isRetreating = false
+        this.lastDirection = "backward"
     }
 
-    switch (this.action.action) {
-      case "attack":
-        warrior.attack(this.action.direction)
-        break;
-      case "rescue":
-        warrior.rescue(this.action.direction)
-        break;
-      case "walk":
-        warrior.walk(this.action.direction)
-        break;
-      case "pivot":
-        warrior.pivot()
-        break;
-      default:
-        warrior.rest()
-        break;
-    }
-    this.previousHealth = warrior.health()
-  }
+    playTurn(warrior) {
+        this.warrior = warrior;
 
-  orient(warrior) {
-
-    if (this.shouldHeal(warrior)) {
-      if (this.isUnderAttack) {
-        if (this.getPreviousMove().action == "walk") {
-          warrior.think("I'm under attack and I will keep walking away")
-          if (warrior.feel(this.getPreviousMove().direction).isEmpty()) {
-            return {
-              "direction": this.getPreviousMove().direction,
-              "action":"walk"
-            }
-          } else if (warrior.feel(this.oppositeDirection(this.getPreviousMove())).isEmpty()) {
-            return {
-              "direction": this.oppositeDirection(this.getPreviousMove()),
-              "action":"walk"
-            }
-          } else {
-            for (var direction in this.directions) {
-              var feel = warrior.feel(direction)
-              if(feel.isEmpty()) {
-                return {
-                  "direction": direction,
-                  "action":"walk"
-                }
-              }
-            }
-          }
+        if (this.healSequence()) {
+        	this.warrior.think("Heal sequence complete")
+        } else if(this.attackSequence()) {
+        	this.warrior.think("Attack sequence complete")
+        } else if (this.rescueSequence()) {
+        	this.warrior.think("Rescue sequence complete")
+        } else if(this.exploreSequence()) {
+        	this.warrior.think("Explore sequence complete")
         } else {
-          warrior.think("I'm under attack and I need to go the opposite way")
-          return {
-            "direction": this.oppositeDirection(this.getPreviousMove()),
-            "action":"walk"
-          }
+        	this.warrior.think("Failed to complete any sequences")
         }
-      } else {
-        return {
-          "direction": this.getPreviousMove().direction,
-          "action":"rest"
+        this.warrior.think('Turn complete')
+    }
+
+    exploreSequence() {
+    	var exploreDirections = ["backward", "left", "right", "forward"]
+		if (this.warrior.feel(this.lastDirection).isEmpty()) {
+			this.warrior.talk("The way still looks clear, continuing to explore " + this.lastDirection)
+			this.warrior.walk(this.lastDirection)
+			return true
+		}
+		this.warrior.talk("This way looks blocked, I'm going to find a new direction to explore.")
+    	for (var i = exploreDirections.length - 1; i >= 0; i--) {
+    		if (this.warrior.feel(exploreDirections[i]).isEmpty()) {
+    			this.warrior.talk("This way looks clear, exploring " + this.exploreDirections[i])
+    			this.lastDirection = exploreDirections[i]
+    			this.warrior.walk(exploreDirections[i])
+    			return true
+    		}
+    	}
+    	return false
+    }
+
+    healSequence() {
+        // do I need to heal?
+        if (this.warrior.health() > this.lastDamageTaken * 2) {
+            return false
         }
-      }
-    } 
-
-    for (var direction in this.directions) {
-      var feel = warrior.feel(direction)
-      if(feel.getUnit()) {
-        var unit = feel.getUnit()
-        if (unit.isEnemy()) {
-          return {
-            "direction":direction,
-            "action":"attack"
-          }
+        // am I under attack?
+        if (this.isUnderAttack) {
+            return this.retreatSequence()
         }
-      }
+        // heal
+        this.warrior.heal();
+        return true
     }
 
-    for (var direction in this.directions) {
-      var feel = warrior.feel(direction)
-      if(feel.getUnit()) {
-        var unit = feel.getUnit()
-        if (unit.isBound()) {
-          return {
-            "direction":direction,
-            "action":"rescue"
-          }
-        }
-      }
+    retreatSequence() {
+    	if (this.isRetreating) {
+    		this.warrior.walk(this.lastDirection)
+    	} else {
+    		this.lastDirection = this.oppositeDirection(this.lastDirection)
+    		this.isRetreating = true
+    		this.warrior.walk()
+    	}
+    	return true
     }
 
-    if (this.getPreviousMove().action == "rest") {
-      warrior.think("I'm done resting and now I need to go back " + this.oppositeDirection(this.getPreviousMove()))
-      return {
-        "direction": this.oppositeDirection(this.getPreviousMove()),
-        "action":"walk"
-      }
-    } else if(!warrior.feel(this.getPreviousMove().direction).isWall()) {
-      warrior.think("I'm walking")
-      return {
-        "direction": this.getPreviousMove().direction,
-        "action":"walk"
-      }
-    } else {
-      warrior.think("I'm walking")
-      return {
-        "direction": this.getPreviousMove().direction,
-        "action":"pivot"
-      }
+    attackSequence() {
+    	// for each direction, feel if enemy and attack
+    	// for (var i = this.directions.length - 1; i >= 0; i--) {
+    	// 	if(this.warrior.feel(this.directions[i]).isEnemy()) {
+    	// 		this.warrior.attack(this.directions[i])
+    	// 		return true
+    	// 	}
+    	// }
+    	if (var direction = this.eachDirection("this.warrior.feel(this.directions[i]).getUnit().isEnemy()")) {
+    		this.warrior.attack(direction)
+    		return true
+    	}
+    	return false
     }
 
-    // if we get this far without a more important action happening, walk
-    for (var direction in this.directions) {
-      var feel = warrior.feel(direction)
-      if (feel.isEmpty()) {
-        return {
-          "direction":direction,
-          "action":"walk"
-        }
-      }
-    }
-  }
-
-  getPreviousMove() {
-    return this.moveStack[this.moveStack.length - 1]
-  }
-
-  shouldHeal(warrior) {
-    if (warrior.health() < 20 && !this.isUnderAttack) {
-      return true;
-    }
-    if (warrior.health() < 10 && this.isUnderAttack) {
-      return true;
-    }
-    return false;
-  }
-
-  oppositeDirection(previousMove) {
-
-    switch (previousMove.direction) {
-      case "forward":
-        return "backward"
-        break;
-      case "backward":
-        return "forward"
-        break;
-      case "left":
-        return "right"
-        break;
-      case "right":
-        return "left"
-        break;
-      default:
-        return "backward"
-        break;
+    rescueSequence() {
+    	if (var direction = this.eachDirection("this.warrior.feel(this.directions[i]).getUnit().isBound()")) {
+    		this.warrior.attack(direction)
+    		return true
+    	}
+    	return false
     }
 
-  }
+    eachDirection(check) {
+    	for (var i = this.directions.length - 1; i >= 0; i--) {
+    		var checkFunction =  new Function(check)
+    		if(checkFunction()) {
+    			return this.directions[i]
+    		}
+    	}
+    	return false
+    }
 
+    oppositeDirection(direction) {
+    	switch (direction) {
+    		case "backward":
+    			return "forward"
+			case "forward":
+    			return "backward"
+			case "left":
+    			return "right"
+			case "right":
+    			return "left"
+    	}
+    	throw "Unknown direction";
+    }
 }
