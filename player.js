@@ -7,7 +7,11 @@ class Player {
         warrior.walk();
       }
     } else {
-      warrior.attack();
+      if(warrior.feel().getUnit().isEnemy()) {
+        warrior.attack();
+      } else if(warrior.feel().getUnit().isBound()) {
+        warrior.rescue();
+      }
     }
     this.previousHealth = warrior.health()
   }
