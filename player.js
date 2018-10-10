@@ -33,6 +33,9 @@ class Player {
       case "walk":
         warrior.walk(this.action.direction)
         break;
+      case "pivot":
+        warrior.pivot()
+        break;
       default:
         warrior.rest()
         break;
@@ -115,16 +118,16 @@ class Player {
         "action":"walk"
       }
     } else if(!warrior.feel(this.getPreviousMove().direction).isWall()) {
-      warrior.think("I'm walking " + this.getPreviousMove().direction)
+      warrior.think("I'm walking")
       return {
         "direction": this.getPreviousMove().direction,
         "action":"walk"
       }
     } else {
-      warrior.think("I'm walking in the opposite direction " + this.oppositeDirection(this.getPreviousMove()) + " " + this.getPreviousMove().direction)
+      warrior.think("I'm walking")
       return {
-        "direction": this.oppositeDirection(this.getPreviousMove()),
-        "action":"walk"
+        "direction": this.getPreviousMove().direction,
+        "action":"pivot"
       }
     }
 
